@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Content Generator Demo</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            min-height: 100vh;
+        }
+        .text-accent { color: #10b981; } /* Emerald Green */
+        .bg-accent { background-color: #10b981; }
+        .bg-accent-hover:hover { background-color: #059669; }
+        .shadow-main { box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.2), 0 4px 6px -2px rgba(16, 185, 129, 0.05); }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #10b981;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center">
+
+    <!-- Header -->
+    <header class="w-full bg-white shadow-lg">
+        <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 flex items-center">
+                <span class="text-accent mr-2" data-lucide="brain-circuit"></span>
+                LLM CONTENT DEMONSTRATOR
+            </h1>
+            <span class="text-sm font-medium text-gray-500 hidden sm:block">Powered by SUNKU</span>
+        </div>
+    </header>
+
+    <!-- Main Content: AI Tool -->
+    <main class="w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-12 flex-grow">
+        <section class="bg-white p-8 rounded-xl shadow-2xl border-t-8 border-accent">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <span class="text-accent mr-2" data-lucide="feather"></span>
+                Creative Content Generator
+            </h2>
+            <p class="text-gray-600 mb-8">
+                Demonstrating the model's ability to quickly synthesize information and adopt a personal. Try asking it to write a short story, a unique social media bio, or a project summary.
+            </p>
+
+            <div class="mb-6">
+                <label for="prompt-input" class="block text-sm font-medium text-gray-700 mb-2">
+                    Your Creative Prompt:
+                </label>
+                <textarea id="prompt-input" rows="3"
+                    class="w-full p-4 border border-gray-300 rounded-lg focus:ring-accent focus:border-accent resize-none text-gray-800"
+                    placeholder="E.g., Write a 100-word introduction for a fantasy novel about a lonely robot."></textarea>
+            </div>
+
+            <button id="generate-btn" 
+                    class="w-full py-3 bg-accent text-white font-semibold rounded-lg shadow-md bg-accent-hover transition duration-200 flex items-center justify-center disabled:opacity-50">
+                <span id="button-text">Generate Content</span>
+                <div id="loader" class="loader ml-3 hidden"></div>
+            </button>
+
+            <!-- Output Display -->
+            <div class="mt-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-3 border-b pb-1">Generated Output</h3>
+                <div id="output-display" 
+                     class="min-h-[150px] p-6 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 whitespace-pre-wrap flex items-center justify-center text-center italic">
+                    <span class="text-gray-400">Your generated content will appear here.</span>
+                </div>
+            </div>
+
+            <!-- Citation Sources (for grounded results) -->
+            <div id="sources-container" class="mt-6 hidden">
+                <h4 class="text-sm font-semibold text-gray-600 mb-2">Sources Used:</h4>
+                <ul id="sources-list" class="space-y-1 text-sm text-gray-500">
+                    <!-- Sources will be injected here -->
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full mt-12 py-4 bg-gray-800 text-center">
+        <p class="text-sm text-gray-400">
+            &copy; 2025 Content Demonstartor Demo | Built with React ❤️ 
+        </p>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // --- 1. FIREBASE AUTH SETUP (MANDATORY BOILERPLATE) ---
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        if (Object.keys(firebaseConfig).length > 0) {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+
+            async function authenticate() {
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Firebase signed in with custom token.");
+                    } else {
+                        await signInAnonymously(auth);
+                        console.log("Firebase signed in anonymously.");
+                    }
+                } catch (error) {
+                    console.error("Firebase Auth Error:", error);
+                }
+            }
+            authenticate();
+        } else {
+            console.warn("Firebase config not found. Skipping initialization.");
+        }
+
+        // --- 2. LLM GENERATION LOGIC ---
+
+        const generateButton = document.getElementById('generate-btn');
+        const buttonText = document.getElementById('button-text');
+        const loader = document.getElementById('loader');
+        const promptInput = document.getElementById('prompt-input');
+        const outputDisplay = document.getElementById('output-display');
+        const sourcesContainer = document.getElementById('sources-container');
+        const sourcesList = document.getElementById('sources-list');
+
+        const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
+        const apiKey = ""; // Canvas environment provides this if empty
+
+        // Helper for exponential backoff retry
+        async function fetchWithRetry(url, options, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    const delay = Math.pow(2, i) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        async function generateContent() {
+            const userQuery = promptInput.value.trim();
+            if (!userQuery) {
+                alert("Please enter a prompt to generate content.");
+                return;
+            }
+
+            // UI State: Loading
+            generateButton.disabled = true;
+            buttonText.textContent = 'Generating...';
+            loader.classList.remove('hidden');
+            outputDisplay.innerHTML = '<span class="text-gray-500 animate-pulse">The AI is creating your content...</span>';
+            sourcesContainer.classList.add('hidden');
+            sourcesList.innerHTML = '';
+
+            const systemPrompt = "You are a creative writing assistant. Respond to the user's prompt with high-quality, engaging content. Do not include any introductory phrases like 'Here is your story...' or markdown formatting like quotes or titles. Only provide the generated text.";
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                // Note: Not using Google Search grounding for creative writing to maximize model creativity.
+            };
+
+            try {
+                const response = await fetchWithRetry(`${API_URL}?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const generatedText = candidate.content.parts[0].text;
+                    outputDisplay.textContent = generatedText.trim();
+                    outputDisplay.classList.remove('italic');
+                    
+                    // Although we didn't request grounding, check for sources just in case
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+
+                    if (sources.length > 0) {
+                        sourcesContainer.classList.remove('hidden');
+                        sources.forEach(source => {
+                            const li = document.createElement('li');
+                            li.innerHTML = `<a href="${source.uri}" target="_blank" class="text-accent hover:underline" title="${source.uri}">${source.title}</a>`;
+                            sourcesList.appendChild(li);
+                        });
+                    }
+
+                } else {
+                    outputDisplay.textContent = "Generation failed. The model may have blocked the content or returned an empty response.";
+                    outputDisplay.classList.add('italic');
+                }
+
+            } catch (error) {
+                outputDisplay.textContent = `Error: Could not connect to the API. Check your connection or retry. (${error.message})`;
+                outputDisplay.classList.add('italic');
+                console.error("LLM Generation Error:", error);
+            } finally {
+                // UI State: Ready
+                generateButton.disabled = false;
+                buttonText.textContent = 'Generate Content';
+                loader.classList.add('hidden');
+            }
+        }
+
+        // --- 3. CUSTOM ALERT (COMPLIANCE) ---
+        function alert(message) {
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 10000;">
+                    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center">
+                        <h4 class="text-xl font-bold mb-3 text-gray-900">Notice</h4>
+                        <p class="mb-5 text-gray-700">${message}</p>
+                        <button onclick="this.parentNode.parentNode.remove()" class="py-2 px-4 bg-accent text-white font-semibold rounded-lg hover:bg-accent-hover transition">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        window.alert = alert; // Override default alert for compliance
+
+        // Event Listener Setup
+        document.addEventListener('DOMContentLoaded', () => {
+            generateButton.addEventListener('click', generateContent);
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
