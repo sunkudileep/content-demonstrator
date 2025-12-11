@@ -40,8 +40,7 @@
     <header class="w-full bg-white shadow-lg">
         <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 flex items-center">
-                <span class="text-accent mr-2" data-lucide="brain-circuit"></span>
-                 CONTENT DEMONSTRATOR
+                <span class="text-accent mr-2" data-lucide="brain-circuit"></span>CONTENT DEMONSTRATOR
             </h1>
             <span class="text-sm font-medium text-gray-500 hidden sm:block">Powered by SUNKU</span>
         </div>
@@ -175,7 +174,7 @@
             sourcesContainer.classList.add('hidden');
             sourcesList.innerHTML = '';
 
-            const systemPrompt = "You are a creative writing assistant. Respond to the user's prompt with high-quality, engaging content. Do not include any introductory phrases like 'Here is your story...' or markdown formatting like quotes or titles. Only provide the generated text.";
+            const systemPrompt = "You are a creative writing assistant. Respond to the user's prompt with high-quality, engaging content. Do not include any introductory phrases like 'Here is you[...]"
 
             const payload = {
                 contents: [{ parts: [{ text: userQuery }] }],
@@ -259,5 +258,4 @@
         });
     </script>
 </body>
-
 </html>
